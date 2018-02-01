@@ -1,0 +1,97 @@
+---
+title: "Inrix_explore"
+author: "Manaswini C"
+date: "January 23, 2018"
+output: html_document
+---
+
+```{r setup,echo=FALSE,results='hide',message=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(PerformanceAnalytics)
+library(GGally)
+library(lubridate)
+library(reshape2)
+```
+
+```{r Bike-Veh}
+getwd()
+setwd("H:/17shared/165918 Bike-Veh Speed/InrixVehAnalysis/Data")
+data1 = read.csv("Inrix_data_4.csv", header=TRUE)
+#Select priority 1 for on road tube count data
+prior = subset(data1, Priority==1)
+dim(prior)
+```
+
+```{r time,warning=FALSE}
+prior.monday= subset(prior, prior$Day == "Monday")
+prior.monday$Time <- as.POSIXct(prior.monday$Time, format = "%H:%M")
+require(ggplot2)
+require(scales)
+
+#ggplot(prior.monday, aes(x=Time, y=ISpeed.mph.)) + geom_point(size=.9, alpha = 0.05, colour="green") + scale_x_datetime( labels=date_format("%H:%M"))+theme_bw()+labs(x="Time of Day", y="Speed (mph)", title= "Speed variation- Monday")
+
+#Inrix speed for sites
+prior$Time <- as.POSIXct(prior$Time, format = "%H:%M")
+ggplot(prior, aes(x=Time, y=ISpeed.mph., colour=SiteNumber)) + 
+  geom_path() + geom_point(cex=0.4)+
+  scale_x_datetime(breaks=date_breaks("2 hour"), labels=date_format("%H:%M")) +
+  facet_grid(Day ~.) +
+  theme(legend.position="none") +theme_bw()+labs(x="Time of Day", y="Inrix Speed (mph)")
+
+#Inrix speeds based on Priorit 1 & 2
+ggplot(prior, aes(x=Time, y=ISpeed.mph., colour=Priority1_Inrix)) + 
+  geom_path() + 
+  scale_x_datetime(breaks=date_breaks("2 hour"), labels=date_format("%H:%M")) +
+  facet_grid(Day ~.) 
+
+#Green = Avg Speed, Red= Inrix Speed
+ggplot(prior, aes(Time)) +                   
+  geom_line(aes(y=ISpeed.mph.), colour="red") + 
+  geom_line(aes(y=AvgSpeed), colour="green")+ 
+  scale_x_datetime(breaks=date_breaks("2 hour"), labels=date_format("%H:%M")) +
+  facet_grid(Day ~.) + labs(x="Time of Day", y="Speed (mph)", title= "Inrix v/s Tube data for days")
+
+#Cdf
+ggplot(prior,aes(x=Time))+ geom_line(aes(y=ISpeed.mph.), colour="Blue") + 
+  geom_line(aes(y=AvgSpeed), colour="green")+  stat_ecdf()
+
+#Black = Inrix Speed, Pink = Tube speed
+ecdf1 <- ecdf(prior$ISpeed.mph.)
+ecdf2 <- ecdf(prior$AvgSpeed)
+plot(ecdf1, verticals=TRUE, do.points=FALSE)
+plot(ecdf2, verticals=TRUE, do.points=FALSE, add=TRUE, col='magenta')
+
+#Boxplots for Site-wise and Daywise: Inrix vs Tube speeds
+data.b = melt(prior, measure.vars=c('ISpeed.mph.','AvgSpeed'))
+ggplot(data.b) + geom_boxplot(aes(x=SiteNumber, y=value, color=variable))+   facet_grid(Day ~.)
+
+#Boxplots for Confidence Score for 15 minutes interval : Inrix speeds
+data.c = melt(prior, measure.vars=c('IPct.Score30','IPctScore20', 'IPctScore10'))
+ggplot(data.c) + geom_boxplot(aes(x= SiteNumber, y=value, color=variable))
+
+#Boxplots for difference in Inrix speeds/ Day/ Site
+s.diff =  lag(prior$AvgSpeed - prior$ISpeed.mph.)
+ggplot(prior, aes(x=SiteNumber, y=s.diff, fill= Day ))+geom_boxplot(alpha=0.3)+ scale_fill_brewer(palette="Paired")
+
+#Speed difference with time
+ggplot(prior, aes(x=Time, y=s.diff, colour=SiteNumber)) + 
+  geom_path() + geom_point(cex=0.4)+
+  scale_x_datetime(breaks=date_breaks("2 hour"), labels=date_format("%H:%M")) +
+  facet_grid(SiteNumber ~.) +
+  theme(legend.position="none") +theme_bw()+labs(x="Time of Day", y="Speed lag (mph)")
+
+#Boxplots for Site-wise and Daywise: Inrix vs Historical vs Reference Inrix Speed
+data.h = melt(prior, measure.vars=c('ISpeed.mph.','IHisAvSpeed.mp.','IRefSpeed.mph.'))
+ggplot(data.h) + geom_boxplot(aes(x=SiteNumber, y=value, color=variable))
+
+#Boxplots for Site-wise and Daywise: Inrix vs Historical Speed vs Confidence
+data.ci = melt(prior, measure.vars=c('ISpeed.mph.','IHisAvSpeed.mp.','ICValue'))
+ggplot(data.ci) + geom_boxplot(aes(x=SiteNumber, y=value, color=variable))
+
+# data.g = melt(prior, measure.vars=c('IPct.Score30','IPctScore20','IPctScore10'))
+# ggplot(data.g,aes(x = SiteNumber, y = value)) + geom_bar(position = "fill",stat = "identity") + scale_y_continuous(labels = percent_format())
+
+
+
+```
